@@ -1,0 +1,32 @@
+steps:
+  - id: 'helm deploy'
+    name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        PROJECT=$$(gcloud config get-value core/project)
+        gcloud container clusters get-credentials "$${CLOUDSDK_CONTAINER_CLUSTER}" \
+          --project "$${PROJECT}" \
+          --zone "$${CLOUDSDK_COMPUTE_ZONE}"
+
+        curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
+        kubectl --namespace kube-system create sa tiller
+        kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+        helm init --service-account tiller
+        helm repo update
+
+        helm delete my-kafka --purge
+
+        kubectl create ns kafka
+        helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
+        helm install --name my-kafka --namespace kafka -f values-external.yaml incubator/kafka
+
+options:
+  env:
+    #    # location/name of GKE cluster (used by all kubectl commands)
+    - CLOUDSDK_COMPUTE_ZONE=asia-northeast1-a
+    - CLOUDSDK_CONTAINER_CLUSTER=standard-cluster-1
+    
+    
+    
